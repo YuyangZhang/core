@@ -1,32 +1,32 @@
-package com.data.service.core.controller;
+package ${packageName};
 
-import com.data.service.core.model.Trade;
-import com.data.service.core.service.TradeService;
+import ${modelPackage}.${entityName};
+import ${servicePackage}.${serviceName};
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/trades")
+@RequestMapping("/api/${entityName.toLowerCase()}s")
 @RequiredArgsConstructor
-public class TradeController {
+public class ${className} {
 
-    private final TradeService service;
+    private final ${serviceName} service;
 
     @GetMapping
-    public List<Trade> getAll() {
+    public List<${entityName}> getAll() {
         return service.findAll();
     }
 
     @PostMapping
-    public Trade create(@RequestBody Trade entity) {
+    public ${entityName} create(@RequestBody ${entityName} entity) {
         return service.save(entity);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Trade> getById(@PathVariable Long id) {
-        Trade entity = service.findById(id);
+    public ResponseEntity<${entityName}> getById(@PathVariable Long id) {
+        ${entityName} entity = service.findById(id);
         return entity != null ? ResponseEntity.ok(entity) : ResponseEntity.notFound().build();
     }
 
