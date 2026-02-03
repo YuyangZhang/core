@@ -1,6 +1,6 @@
 package com.data.service.core;
 
-import com.data.service.core.model.Trade;
+import com.data.service.core.model.TradeEntity;
 import com.data.service.core.repository.TradeRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,10 +19,10 @@ class TradeIntegrationTest {
 
     @Test
     void testTradesAreLoaded() {
-        List<Trade> trades = tradeRepository.findAll();
+        List<TradeEntity> trades = tradeRepository.findAll();
         assertThat(trades).hasSize(2);
 
-        Trade trade = trades.stream().filter(t -> t.getTradeType().equals("SPOT")).findFirst().orElseThrow();
+        TradeEntity trade = trades.stream().filter(t -> t.getTradeType().equals("SPOT")).findFirst().orElseThrow();
         assertThat(trade.getCurrency()).isEqualTo("USD");
         assertThat(trade.getAmount()).isEqualTo(1000.0);
     }

@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+import com.data.service.core.search.MetricRequest;
+
 @RestController
 @RequestMapping("/api/trades")
 @RequiredArgsConstructor
@@ -34,5 +36,10 @@ public class TradeController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/metric")
+    public ResponseEntity<Object> getMetric(@RequestBody MetricRequest request) {
+        return ResponseEntity.ok(service.getMetric(request));
     }
 }
