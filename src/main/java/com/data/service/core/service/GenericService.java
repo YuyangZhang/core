@@ -17,18 +17,25 @@ import java.util.stream.Collectors;
  * @param <M> the model/DTO type
  * @param <E> the JPA entity type
  */
-public abstract class GenericService<M, E> {
+public class GenericService<M, E> {
 
     private final JpaRepository<E, Long> repository;
     private final JpaSpecificationExecutor<E> specExecutor;
     private final EntityMapper<M, E> mapper;
+    private final Class<M> modelClass;
 
-    protected GenericService(JpaRepository<E, Long> repository,
+    public GenericService(JpaRepository<E, Long> repository,
             JpaSpecificationExecutor<E> specExecutor,
-            EntityMapper<M, E> mapper) {
+            EntityMapper<M, E> mapper,
+            Class<M> modelClass) {
         this.repository = repository;
         this.specExecutor = specExecutor;
         this.mapper = mapper;
+        this.modelClass = modelClass;
+    }
+
+    public Class<M> getModelClass() {
+        return modelClass;
     }
 
     public List<M> findAll() {

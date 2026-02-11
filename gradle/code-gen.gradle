@@ -11,7 +11,7 @@ import org.yaml.snakeyaml.Yaml
 import groovy.text.SimpleTemplateEngine
 
 task generateScaffold {
-    description = 'Generates Java Entity, Repository, Service, and Controller from a YAML configuration using Groovy Templates.'
+    description = 'Generates Java Entity, Repository, and Mapper from a YAML configuration using Groovy Templates.'
     group = 'source generation'
 
     def configFile = file('src/main/resources/entity-model.yaml')
@@ -33,9 +33,7 @@ task generateScaffold {
         
         def packages = [
             model: modelPackage,
-            repository: "${basePackage}.repository",
-            service: "${basePackage}.service",
-            controller: "${basePackage}.controller"
+            repository: "${basePackage}.repository"
         ]
 
         // Create directories
@@ -51,9 +49,7 @@ task generateScaffold {
             model: engine.createTemplate(new File(templatesDir, 'model.groovy')),
             mapperBase: engine.createTemplate(new File(templatesDir, 'mapper_base.groovy')),
             mapper: engine.createTemplate(new File(templatesDir, 'mapper.groovy')),
-            repository: engine.createTemplate(new File(templatesDir, 'repository.groovy')),
-            service: engine.createTemplate(new File(templatesDir, 'service.groovy')),
-            controller: engine.createTemplate(new File(templatesDir, 'controller.groovy'))
+            repository: engine.createTemplate(new File(templatesDir, 'repository.groovy'))
         ]
 
         config.entities.each { entity ->
@@ -121,31 +117,6 @@ task generateScaffold {
                 entityName: entity.name
             ]
             writeFile(packages.repository, "${entity.name}Repository", templates.repository, binding, outputDir, true)
-
-            // 6. Generate Service (Uses Model, Entity, Mapper)
-            binding = [
-                packageName: packages.service,
-                className: "${entity.name}Service",
-                modelPackage: packages.model,
-                entityPackage: packages.model,
-                repositoryPackage: packages.repository,
-                mapperPackage: mapperPackage,
-                entityName: entity.name,
-                repositoryName: "${entity.name}Repository",
-                mapperName: "${entity.name}Mapper"
-            ]
-            writeFile(packages.service, "${entity.name}Service", templates.service, binding, outputDir, true)
-
-            // 7. Generate Controller (Uses Model, Service)
-            binding = [
-                packageName: packages.controller,
-                className: "${entity.name}Controller",
-                modelPackage: packages.model,
-                servicePackage: packages.service,
-                entityName: entity.name,
-                serviceName: "${entity.name}Service"
-            ]
-            writeFile(packages.controller, "${entity.name}Controller", templates.controller, binding, outputDir, true)
         }
     }
 }
