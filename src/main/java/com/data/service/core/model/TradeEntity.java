@@ -11,26 +11,18 @@ import lombok.*;
 @AllArgsConstructor
 public class TradeEntity {
 
-
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    
     private Long id;
 
-    
     private String tradeType;
 
-    
     private java.time.LocalDate tradeDate;
 
-    
     private Double amount;
 
-    
     private String currency;
 
-    
     private String counterparty;
 
 }

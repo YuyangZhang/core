@@ -10,12 +10,11 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ${className} {
-
-<% attributes.each { attr -> %>
-    <% if (attr.isId) { %>
+<% attributes.each { attr -> %><% if (attr.isId) { %>
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    <% } %>
     private ${attr.type} ${attr.name};
-<% } %>
+<% } else { %>
+    private ${attr.type} ${attr.name};
+<% } %><% } %>
 }

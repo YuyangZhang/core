@@ -1,6 +1,7 @@
-package ${packageName};
-
+<% def calculatedAttrs = attributes.findAll { it.isCalculated } %>package ${packageName};
+<% if (!calculatedAttrs.isEmpty()) { %>
 import ${entityPackage}.${entityClass};
+<% } %>
 import org.springframework.stereotype.Component;
 
 /**
@@ -9,14 +10,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class ${className} extends ${baseClassName} {
-
-    <% attributes.each { attr -> %>
-    <% if (attr.isCalculated) { %>
+<% calculatedAttrs.each { attr -> %>
     @Override
     protected ${attr.type} calculate${attr.capitalizedName}(${entityClass} entity) {
         // TODO: Implement custom logic for ${attr.name}
-        return null; // Default value
+        return null;
     }
-    <% } %>
-    <% } %>
+<% } %>
 }

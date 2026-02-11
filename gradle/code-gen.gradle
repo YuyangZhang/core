@@ -20,7 +20,6 @@ task generateScaffold {
 
     inputs.file(configFile)
     inputs.dir(templatesDir)
-    outputs.dir(outputDir)
 
     doLast {
         if (!configFile.exists()) {
@@ -160,3 +159,6 @@ def writeFile(String packageName, String className, groovy.text.Template templat
         println "Skipping ${file.path} (already exists)"
     }
 }
+
+compileJava.dependsOn generateScaffold
+

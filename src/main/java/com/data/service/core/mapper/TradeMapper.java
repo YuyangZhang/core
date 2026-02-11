@@ -1,6 +1,5 @@
 package com.data.service.core.mapper;
 
-import com.data.service.core.model.TradeEntity;
 import org.springframework.stereotype.Component;
 
 /**
@@ -9,18 +8,4 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class TradeMapper extends TradeMapperBase {
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
 }

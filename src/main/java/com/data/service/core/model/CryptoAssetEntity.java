@@ -11,20 +11,14 @@ import lombok.*;
 @AllArgsConstructor
 public class CryptoAssetEntity {
 
-
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    
     private Long id;
 
-    
     private String symbol;
 
-    
     private java.math.BigDecimal marketCap;
 
-    
     private java.time.LocalDate listingDate;
 
 }
