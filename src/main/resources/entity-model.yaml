@@ -29,3 +29,14 @@ entities:
         type: String
       - name: counterparty
         type: String
+
+  - name: Account
+    sql: "SELECT MIN(t.id) as id, t.counterparty as account_name, SUM(t.amount) as balance FROM trade t GROUP BY t.counterparty"
+    attributes:
+      - name: id
+        type: Long
+        isId: true
+      - name: accountName
+        type: String
+      - name: balance
+        type: Double

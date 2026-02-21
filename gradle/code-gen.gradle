@@ -78,6 +78,7 @@ task generateScaffold {
                 packageName: packages.model,
                 className: "${entity.name}Entity",
                 tableName: entity.tableName ?: entity.name.toLowerCase(),
+                sql: entity.sql,
                 attributes: dbAttributes
             ]
             writeFile(packages.model, "${entity.name}Entity", templates.entity, binding, outputDir, true)
