@@ -10,6 +10,6 @@ import org.springframework.stereotype.Service;
 public class CryptoAssetService extends GenericService<CryptoAsset, CryptoAssetEntity> {
 
     public CryptoAssetService(CryptoAssetRepository repository, CryptoAssetMapper mapper) {
-        super(repository, repository, mapper);
+        super(repository, repository, mapper, CryptoAsset.class);
     }
 }

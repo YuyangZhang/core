@@ -17,7 +17,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -124,6 +127,33 @@ class GenericServiceTest {
         verify(specExecutor, times(1)).findAll(nullable(Specification.class));
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void testGetMetricGroupBy() {
+        MetricRequest request = new MetricRequest();
+        request.setMetricType("SUM");
+        request.setField("doubleField");
+        request.setGroupBy(List.of("stringField"));
+
+        TestEntity e1 = new TestEntity(1L, "group1", 50.0);
+        TestEntity e2 = new TestEntity(2L, "group1", 25.0);
+        TestEntity e3 = new TestEntity(3L, "group2", 10.0);
+
+        when(specExecutor.findAll(nullable(Specification.class))).thenReturn(List.of(e1, e2, e3));
+
+        Object result = testService.getMetric(request);
+
+        assertTrue(result instanceof List);
+        List<Map<String, Object>> list = (List<Map<String, Object>>) result;
+        assertEquals(2, list.size());
+
+        Map<String, Object> g1 = list.stream().filter(m -> "group1".equals(m.get("stringField"))).findFirst().get();
+        assertEquals(75.0, g1.get("sum"));
+
+        Map<String, Object> g2 = list.stream().filter(m -> "group2".equals(m.get("stringField"))).findFirst().get();
+        assertEquals(10.0, g2.get("sum"));
+    }
+
     static class TestModel {
         Long id;
         String stringField;
@@ -152,7 +182,7 @@ class GenericServiceTest {
         public TestService(JpaRepository<TestEntity, Long> repository,
                 JpaSpecificationExecutor<TestEntity> specExecutor,
                 EntityMapper<TestModel, TestEntity> mapper) {
-            super(repository, specExecutor, mapper);
+            super(repository, specExecutor, mapper, TestModel.class);
         }
     }
 }

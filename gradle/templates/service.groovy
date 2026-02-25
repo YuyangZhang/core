@@ -10,6 +10,6 @@ import org.springframework.stereotype.Service;
 public class ${className} extends GenericService<${entityName}, ${entityName}Entity> {
 
     public ${className}(${repositoryName} repository, ${mapperName} mapper) {
-        super(repository, repository, mapper);
+        super(repository, repository, mapper, ${entityName}.class);
     }
 }

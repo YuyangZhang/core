@@ -10,6 +10,6 @@ import org.springframework.stereotype.Service;
 public class TradeService extends GenericService<Trade, TradeEntity> {
 
     public TradeService(TradeRepository repository, TradeMapper mapper) {
-        super(repository, repository, mapper);
+        super(repository, repository, mapper, Trade.class);
     }
 }

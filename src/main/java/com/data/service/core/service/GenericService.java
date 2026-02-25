@@ -10,6 +10,10 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Collections;
 
 /**
  * Abstract generic service providing standard CRUD and metric operations.
@@ -17,18 +21,25 @@ import java.util.stream.Collectors;
  * @param <M> the model/DTO type
  * @param <E> the JPA entity type
  */
-public abstract class GenericService<M, E> {
+public class GenericService<M, E> {
 
     private final JpaRepository<E, Long> repository;
     private final JpaSpecificationExecutor<E> specExecutor;
     private final EntityMapper<M, E> mapper;
+    private final Class<M> modelClass;
 
-    protected GenericService(JpaRepository<E, Long> repository,
+    public GenericService(JpaRepository<E, Long> repository,
             JpaSpecificationExecutor<E> specExecutor,
-            EntityMapper<M, E> mapper) {
+            EntityMapper<M, E> mapper,
+            Class<M> modelClass) {
         this.repository = repository;
         this.specExecutor = specExecutor;
         this.mapper = mapper;
+        this.modelClass = modelClass;
+    }
+
+    public Class<M> getModelClass() {
+        return modelClass;
     }
 
     public List<M> findAll() {
@@ -53,6 +64,7 @@ public abstract class GenericService<M, E> {
         repository.deleteById(id);
     }
 
+    @SuppressWarnings("unchecked")
     public Object getMetric(MetricRequest request) {
         Specification<E> spec = null;
         if (request.getFilters() != null) {
@@ -62,25 +74,90 @@ public abstract class GenericService<M, E> {
             }
         }
 
-        if ("COUNT".equalsIgnoreCase(request.getMetricType())) {
+        // Handle COUNT without group by efficiently
+        if ((request.getGroupBy() == null || request.getGroupBy().isEmpty())
+                && "COUNT".equalsIgnoreCase(request.getMetricType())) {
             return specExecutor.count(spec);
         }
 
         List<E> entities = specExecutor.findAll(spec);
 
-        if ("SUM".equalsIgnoreCase(request.getMetricType())) {
-            return entities.stream().mapToDouble(e -> {
-                try {
-                    java.lang.reflect.Field field = e.getClass().getDeclaredField(request.getField());
-                    field.setAccessible(true);
-                    Object v = field.get(e);
-                    return v instanceof Number ? ((Number) v).doubleValue() : 0.0;
-                } catch (Exception ex) {
-                    return 0.0;
+        if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
+            java.util.function.Function<E, Map<String, Object>> groupKeyExtractor = e -> {
+                Map<String, Object> key = new LinkedHashMap<>();
+                for (String g : request.getGroupBy()) {
+                    key.put(g, getFieldValue(e, g));
                 }
-            }).sum();
+                return key;
+            };
+
+            return entities.stream()
+                    .collect(Collectors.groupingBy(groupKeyExtractor))
+                    .entrySet().stream()
+                    .map(entry -> {
+                        Map<String, Object> result = new LinkedHashMap<>(entry.getKey());
+                        result.put(request.getMetricType().toLowerCase(), aggregate(entry.getValue(), request));
+                        return result;
+                    }).collect(Collectors.toList());
         }
 
-        return 0;
+        return aggregate(entities, request);
+    }
+
+    private Object getFieldValue(Object obj, String fieldName) {
+        if (obj == null || fieldName == null)
+            return null;
+        try {
+            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(obj);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object aggregate(List<E> list, MetricRequest request) {
+        String type = request.getMetricType();
+        String fieldName = request.getField();
+
+        if ("COUNT".equalsIgnoreCase(type)) {
+            return list.size();
+        }
+
+        if (list.isEmpty())
+            return 0.0;
+
+        if ("MAX".equalsIgnoreCase(type) || "MIN".equalsIgnoreCase(type)) {
+            List<Comparable> values = list.stream()
+                    .map(e -> {
+                        Object v = getFieldValue(e, fieldName);
+                        return v instanceof Comparable ? (Comparable) v : null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            if (values.isEmpty())
+                return null;
+            return "MAX".equalsIgnoreCase(type) ? Collections.max(values) : Collections.min(values);
+        }
+
+        List<Double> numValues = list.stream()
+                .map(e -> {
+                    Object v = getFieldValue(e, fieldName);
+                    return v instanceof Number ? ((Number) v).doubleValue() : null;
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (numValues.isEmpty())
+            return 0.0;
+
+        if ("SUM".equalsIgnoreCase(type)) {
+            return numValues.stream().mapToDouble(Double::doubleValue).sum();
+        } else if ("AVG".equalsIgnoreCase(type)) {
+            return numValues.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        }
+
+        return 0.0;
     }
 }
