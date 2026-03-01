@@ -11,7 +11,7 @@ import org.yaml.snakeyaml.Yaml
 import groovy.text.SimpleTemplateEngine
 
 task generateScaffold {
-    description = 'Generates Java Entity, Repository, Service, and Controller from a YAML configuration using Groovy Templates.'
+    description = 'Generates Java Entity, Repository, and Mapper from a YAML configuration using Groovy Templates.'
     group = 'source generation'
 
     def configFile = file('src/main/resources/entity-model.yaml')
