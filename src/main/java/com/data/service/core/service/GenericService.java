@@ -4,6 +4,7 @@ import com.data.service.core.mapper.EntityMapper;
 import com.data.service.core.search.GenericSpecification;
 import com.data.service.core.search.MetricRequest;
 import com.data.service.core.search.SearchCriteria;
+import com.data.service.core.search.SearchRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -14,6 +15,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Collections;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Tuple;
+import jakarta.persistence.criteria.*;
 
 /**
  * Abstract generic service providing standard CRUD and metric operations.
@@ -27,15 +32,21 @@ public class GenericService<M, E> {
     private final JpaSpecificationExecutor<E> specExecutor;
     private final EntityMapper<M, E> mapper;
     private final Class<M> modelClass;
+    private final Class<E> entityClass;
+    private final EntityManager entityManager;
 
     public GenericService(JpaRepository<E, Long> repository,
             JpaSpecificationExecutor<E> specExecutor,
             EntityMapper<M, E> mapper,
-            Class<M> modelClass) {
+            Class<M> modelClass,
+            Class<E> entityClass,
+            EntityManager entityManager) {
         this.repository = repository;
         this.specExecutor = specExecutor;
         this.mapper = mapper;
         this.modelClass = modelClass;
+        this.entityClass = entityClass;
+        this.entityManager = entityManager;
     }
 
     public Class<M> getModelClass() {
@@ -64,100 +75,85 @@ public class GenericService<M, E> {
         repository.deleteById(id);
     }
 
-    @SuppressWarnings("unchecked")
-    public Object getMetric(MetricRequest request) {
+    public List<M> query(SearchRequest request) {
+        Specification<E> spec = buildSpecification(request.getConditions());
+        return specExecutor.findAll(spec).stream()
+                .map(mapper::toModel)
+                .collect(Collectors.toList());
+    }
+
+    private Specification<E> buildSpecification(List<SearchCriteria> criteriaList) {
         Specification<E> spec = null;
-        if (request.getFilters() != null) {
-            for (SearchCriteria criteria : request.getFilters()) {
+        if (criteriaList != null) {
+            for (SearchCriteria criteria : criteriaList) {
                 Specification<E> nextSpec = new GenericSpecification<>(criteria);
                 spec = (spec == null) ? nextSpec : spec.and(nextSpec);
             }
         }
-
-        // Handle COUNT without group by efficiently
-        if ((request.getGroupBy() == null || request.getGroupBy().isEmpty())
-                && "COUNT".equalsIgnoreCase(request.getMetricType())) {
-            return specExecutor.count(spec);
-        }
-
-        List<E> entities = specExecutor.findAll(spec);
-
-        if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
-            java.util.function.Function<E, Map<String, Object>> groupKeyExtractor = e -> {
-                Map<String, Object> key = new LinkedHashMap<>();
-                for (String g : request.getGroupBy()) {
-                    key.put(g, getFieldValue(e, g));
-                }
-                return key;
-            };
-
-            return entities.stream()
-                    .collect(Collectors.groupingBy(groupKeyExtractor))
-                    .entrySet().stream()
-                    .map(entry -> {
-                        Map<String, Object> result = new LinkedHashMap<>(entry.getKey());
-                        result.put(request.getMetricType().toLowerCase(), aggregate(entry.getValue(), request));
-                        return result;
-                    }).collect(Collectors.toList());
-        }
-
-        return aggregate(entities, request);
+        return spec;
     }
 
-    private Object getFieldValue(Object obj, String fieldName) {
-        if (obj == null || fieldName == null)
-            return null;
-        try {
-            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return field.get(obj);
-        } catch (Exception e) {
-            return null;
-        }
-    }
+    public Object getMetric(MetricRequest request) {
+        Specification<E> spec = buildSpecification(request.getFilters());
 
-    @SuppressWarnings("unchecked")
-    private Object aggregate(List<E> list, MetricRequest request) {
-        String type = request.getMetricType();
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> query = cb.createTupleQuery();
+        Root<E> root = query.from(entityClass);
+
+        if (spec != null) {
+            Predicate predicate = spec.toPredicate(root, query, cb);
+            if (predicate != null) {
+                query.where(predicate);
+            }
+        }
+
+        String type = request.getMetricType() != null && !request.getMetricType().isEmpty() ? request.getMetricType().toUpperCase() : "COUNT";
         String fieldName = request.getField();
+        List<String> groupByFields = request.getGroupBy() == null ? Collections.emptyList() : request.getGroupBy();
 
-        if ("COUNT".equalsIgnoreCase(type)) {
-            return list.size();
+        List<Selection<?>> selections = new java.util.ArrayList<>();
+        List<Expression<?>> groupExpressions = new java.util.ArrayList<>();
+
+        for (String g : groupByFields) {
+            Path<?> path = root.get(g);
+            selections.add(path.alias(g));
+            groupExpressions.add(path);
         }
 
-        if (list.isEmpty())
-            return 0.0;
+        Expression<?> aggExpression;
+        if (fieldName != null && !fieldName.isEmpty()) {
+            Path<Number> path = root.get(fieldName);
+            switch (type) {
+                case "SUM": aggExpression = cb.sum(path); break;
+                case "AVG": aggExpression = cb.avg(path); break;
+                case "MAX": aggExpression = cb.max(path); break;
+                case "MIN": aggExpression = cb.min(path); break;
+                default: aggExpression = cb.count(path); break;
+            }
+        } else {
+            aggExpression = cb.count(root);
+        }
+        selections.add(aggExpression.alias("metricValue"));
 
-        if ("MAX".equalsIgnoreCase(type) || "MIN".equalsIgnoreCase(type)) {
-            List<Comparable> values = list.stream()
-                    .map(e -> {
-                        Object v = getFieldValue(e, fieldName);
-                        return v instanceof Comparable ? (Comparable) v : null;
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-            if (values.isEmpty())
-                return null;
-            return "MAX".equalsIgnoreCase(type) ? Collections.max(values) : Collections.min(values);
+        query.multiselect(selections);
+        if (!groupExpressions.isEmpty()) {
+            query.groupBy(groupExpressions);
         }
 
-        List<Double> numValues = list.stream()
-                .map(e -> {
-                    Object v = getFieldValue(e, fieldName);
-                    return v instanceof Number ? ((Number) v).doubleValue() : null;
-                })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        List<Tuple> resultList = entityManager.createQuery(query).getResultList();
 
-        if (numValues.isEmpty())
-            return 0.0;
-
-        if ("SUM".equalsIgnoreCase(type)) {
-            return numValues.stream().mapToDouble(Double::doubleValue).sum();
-        } else if ("AVG".equalsIgnoreCase(type)) {
-            return numValues.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        if (groupByFields.isEmpty()) {
+            if (resultList.isEmpty()) return 0.0;
+            return resultList.get(0).get("metricValue");
         }
 
-        return 0.0;
+        return resultList.stream().map(tuple -> {
+            Map<String, Object> map = new LinkedHashMap<>();
+            for (String g : groupByFields) {
+                map.put(g, tuple.get(g));
+            }
+            map.put(type.toLowerCase(), tuple.get("metricValue"));
+            return map;
+        }).collect(Collectors.toList());
     }
 }

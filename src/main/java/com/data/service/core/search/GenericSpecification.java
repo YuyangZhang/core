@@ -56,6 +56,16 @@ public class GenericSpecification<T> implements Specification<T> {
                 return builder.like(root.get(key), "%" + value);
             case CONTAINS:
                 return builder.like(root.get(key), "%" + value + "%");
+            case IN:
+                if (value instanceof java.util.Collection) {
+                    return root.get(key).in((java.util.Collection<?>) value);
+                } else if (value instanceof String) {
+                    java.util.List<String> list = java.util.Arrays.stream(((String) value).split(","))
+                            .map(String::trim)
+                            .collect(java.util.stream.Collectors.toList());
+                    return root.get(key).in(list);
+                }
+                return builder.equal(root.get(key), value);
             default:
                 return null;
         }

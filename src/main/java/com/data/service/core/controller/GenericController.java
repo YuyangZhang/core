@@ -50,4 +50,9 @@ public abstract class GenericController<M, E> {
     public ResponseEntity<Object> getMetric(@RequestBody MetricRequest request) {
         return ResponseEntity.ok(service.getMetric(request));
     }
+
+    @PostMapping("/query")
+    public ResponseEntity<List<M>> query(@RequestBody MetricRequest request) {
+        return ResponseEntity.ok(service.query(request));
+    }
 }
